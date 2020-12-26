@@ -2,7 +2,7 @@
 
 HANDLE hDriver;
 
-#define IO_READ_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 0x0701, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
+#define IO_READ_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 0x0701, METHOD_OUT_DIRECT, FILE_ANY_ACCESS)
 
 #define IO_GETMODULEBASE_REQUEST CTL_CODE(FILE_DEVICE_UNKNOWN, 0x0703, METHOD_BUFFERED, FILE_SPECIAL_ACCESS)
 
@@ -25,23 +25,29 @@ typedef struct _KERNEL_GETMODULEBASE_REQUEST
 
 //End of structs//
 
-template <typename type>
-type ReadVirtualMemory1(ULONG ProcessId, DWORD_PTR ReadAddress, SIZE_T Size)
+void ReadVirtualMemory(ULONG ProcessId, DWORD_PTR ReadAddress, LPVOID lpBuffer, SIZE_T Size)
 {
     if (hDriver == INVALID_HANDLE_VALUE)
-        return (type)false;   
+        return;
 
-    KERNEL_READ_REQUEST ReadRequest;
+    struct Rpmdata
+    {
+        HANDLE pid;
+        PVOID SourceAddress;
+        PVOID TargetAddress;
+        SIZE_T Size;
+    } rpm;
 
-    ReadRequest.ProcessId = ProcessId;
-    ReadRequest.Address = ReadAddress;    
-    ReadRequest.Size = Size;
-   
+    rpm.pid = (HANDLE)ProcessId;
+    rpm.SourceAddress = (PVOID)ReadAddress;
+    rpm.TargetAddress = lpBuffer;
+    rpm.Size = Size;
+    HANDLE hDevice = INVALID_HANDLE_VALUE;
+    BOOL bResult = FALSE;
+    DWORD junk = 0;
 
-    if (DeviceIoControl(hDriver, IO_READ_REQUEST, &ReadRequest, sizeof(ReadRequest), &ReadRequest, sizeof(ReadRequest), 0, 0))       
-        return (type)ReadRequest.Response;
-    else        
-        return (type)false;    
+    // send code to our driver with the arguments
+    bool result = DeviceIoControl(hDriver, IO_READ_REQUEST, &rpm, sizeof(rpm), lpBuffer, Size, &junk, (LPOVERLAPPED)NULL);
 
 }
 
@@ -96,22 +102,25 @@ void dump_user_module(DWORD process_id, const char* module_name)
     printf("[+] Size Alocado em: %p\n",buf);
     printf("[+] Tentando dumpar: aguarde um momento, pode demorar minutos\n");   
 
-    //HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, process_id);
-    //SIZE_T bytes_read = 0;
-    //ReadProcessMemory(hProcess, (PVOID)BaseAddress, buf, SizeOfModule, &bytes_read);         
-    //CloseHandle(hProcess);
     
-    for (int i = 0; i < SizeOfModule; i++)
+    /*HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, NULL, process_id);
+    SIZE_T bytes_read = 0;
+    ReadProcessMemory(hProcess, (PVOID)BaseAddress, buf, SizeOfModule, &bytes_read);  */
+    ReadVirtualMemory(process_id, BaseAddress, buf, SizeOfModule);
+    
+    
+  /*  for (int i = 0; i < SizeOfModule; i++)
     {
         buf[i] = ReadVirtualMemory1<char>(process_id, BaseAddress+i, 4);       
-    }
-
-   /* if (!bytes_read)
-    {
-        printf("[-] Erro ao ler bytes...\n");
-        delete[] buf;
-        return;
     }*/
+
+    //if (!bytes_read)
+    //{
+    //    printf("[-] Erro ao ler bytes...\n");
+    //    delete[] buf;
+    //    return;
+    //}
+
     printf("[+] Dados copiados: Finalizando...\n");
     auto pimage_dos_header = reinterpret_cast<PIMAGE_DOS_HEADER>(buf);
     auto pimage_nt_headers = reinterpret_cast<PIMAGE_NT_HEADERS>(buf + pimage_dos_header->e_lfanew);    
