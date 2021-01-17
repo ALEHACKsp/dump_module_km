@@ -92,7 +92,7 @@ void dump_user_module(DWORD process_id, const char* module_name)
         return;
     }
 
-    printf("[+] ModuleBase: %X\n", BaseAddress);
+    printf("[+] ModuleBase: %p\n", BaseAddress);
     printf("[+] SizeOfModule1: %X\n", SizeOfModule);
   
     auto buf = new char[SizeOfModule];
@@ -134,7 +134,7 @@ void dump_user_module(DWORD process_id, const char* module_name)
             pimage_section_header->PointerToRawData = pimage_section_header->VirtualAddress;
             pimage_section_header->SizeOfRawData = pimage_section_header->Misc.VirtualSize;
         }       
-        pimage_nt_headers->OptionalHeader.ImageBase = (DWORD)BaseAddress;
+        pimage_nt_headers->OptionalHeader.ImageBase = (DWORD_PTR)BaseAddress;
     }
 
  
@@ -147,7 +147,7 @@ void dump_user_module(DWORD process_id, const char* module_name)
             pimage_section_header->PointerToRawData = pimage_section_header->VirtualAddress;
             pimage_section_header->SizeOfRawData = pimage_section_header->Misc.VirtualSize;
         }      
-        pimage_nt_headers32->OptionalHeader.ImageBase = (DWORD)(BaseAddress);
+        pimage_nt_headers32->OptionalHeader.ImageBase = (DWORD_PTR)(BaseAddress);
     }
     else
     {
